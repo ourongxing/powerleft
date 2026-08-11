@@ -1,6 +1,6 @@
-# 京东京造 JZM5 电量
+# 余电 PowerLeft
 
-让 macOS 电池小组件和 [AirBattery](https://github.com/lihaoyun6/AirBattery) 显示京东京造 JZM5 的 2.4G 模式电量。
+让 macOS 电池小组件显示京东京造 JZM5 和 Keychron M6 的 2.4G 模式电量。JZM5 还可选同步到 [AirBattery](https://github.com/lihaoyun6/AirBattery)。
 
 程序直接读取接收器的私有 HID 电量报告，每分钟更新一次电量和充电状态，并在菜单栏提供权限状态、开机启动和退出选项。它不会修改 AirBattery，也不会写入 AirBattery 的容器目录。
 
@@ -8,20 +8,20 @@
 
 ## 下载与启动
 
-1. 从 Releases 下载 `JZM5BatteryTray.app.zip`，解压后把应用拖到“应用程序”。
+1. 从 Releases 下载 `PowerLeft.app.zip`，解压后把应用拖到“应用程序”。
 2. 本项目没有 Apple Developer ID 签名和公证。若 macOS 提示应用已损坏或无法验证开发者，只移除本应用的下载隔离属性：
 
    ```bash
-   sudo xattr -dr com.apple.quarantine /Applications/JZM5BatteryTray.app
+   sudo xattr -dr com.apple.quarantine /Applications/PowerLeft.app
    ```
 
-3. 启动应用，点击菜单栏鼠标图标里的“输入监控授权…”，再到“系统设置 → 隐私与安全性 → 输入监控”允许“京东京造 JZM5 电量”。授权后重新启动应用。
+3. 启动应用，点击菜单栏电池图标里的“输入监控授权…”，再到“系统设置 → 隐私与安全性 → 输入监控”允许“余电”。授权后重新启动应用。
 
 不要使用 `spctl --master-disable` 全局关闭 Gatekeeper。
 
 ## AirBattery Nearcast
 
-AirBattery 不是必需的；macOS 电池小组件可由本程序独立更新。需要同步到 AirBattery 时：
+AirBattery 不是必需的；macOS 电池小组件可由本程序独立更新。目前 Nearcast 只同步 JZM5。需要同步时：
 
 1. 在 AirBattery 设置中开启 Nearcast。
 2. 在终端运行一次下面的命令，把 AirBattery 的 Nearcast 群组 ID 写入本程序自己的偏好设置：
@@ -31,16 +31,17 @@ AirBattery 不是必需的；macOS 电池小组件可由本程序独立更新。
      "$(defaults read com.lihaoyun6.AirBattery ncGroupID)"
    ```
 
-3. 重新启动 `JZM5BatteryTray.app`，并在 macOS 询问时允许其访问本地网络。
+3. 重新启动 `PowerLeft.app`，并在 macOS 询问时允许其访问本地网络。
 
 群组 ID 不会写入应用包或上传到网络。AirBattery 重置群组 ID、重新安装或换 Mac 后，需要重新执行上述命令。
 
 ## 注意事项
 
-- 仅适配京东京造 JZM5 的 2.4G 接收器 `VID 0x362D / PID 0xD107`，不适用于蓝牙模式或其他型号。
+- 已适配京东京造 JZM5 接收器 `VID 0x362D / PID 0xD107` 和 Keychron M6 接收器 `VID 0x3434 / PID 0xD030`。
+- 当前只支持这两款鼠标的 2.4G 模式，不适用于蓝牙模式；键盘支持将在后续加入。
 - 鼠标必须已与接收器配对；网页驱动运行时可能占用 HID 接口，测试前请关闭相关页面。
 - 应用需要“输入监控”权限读取 HID 报告；Nearcast 还需要“本地网络”权限。
-- 应用启动时立即查询一次，之后每 60 秒查询。读取失败时保留上一次有效电量，不会发布假 `0%`。
+- 应用启动时立即查询一次，之后每 60 秒查询。未连接的设备不会显示；接收器仍在但单次读取失败时保留上一次有效电量，不会发布假 `0%`。
 - 应用退出后，macOS 电源项会消失；AirBattery 会收到离线状态，但其界面或小组件可能要等下一次时间线刷新才消失。
 - 系统电池小组件的刷新由 macOS 调度，显示可能比真实电量晚一个刷新周期。
 - 系统电源项使用 macOS 的非公开 IOKit 接口，未来系统版本可能改变行为。
@@ -52,14 +53,14 @@ AirBattery 不是必需的；macOS 电池小组件可由本程序独立更新。
 
 ```bash
 ./build.sh
-open dist/JZM5BatteryTray.app
+open dist/PowerLeft.app
 ```
 
-构建脚本使用 ad-hoc 签名，不需要开发者证书。产物位于 `dist/JZM5BatteryTray.app`。
+构建脚本使用 ad-hoc 签名，不需要开发者证书。产物位于 `dist/PowerLeft.app`。
 
 ## 工作原理
 
-程序在接收器的 `Usage Page 0x008C / Usage 0x01` 接口发送 Output Report `0xB3 + 0x06`，从 Input Report `0xB4` 的第 19 字节解析电量。随后将电量发布为 macOS Accessory Power Source，并可选通过 AirBattery Nearcast 在本机同步。
+程序只打开接收器的 `Usage Page 0x008C / Usage 0x01` 管理接口。JZM5 通过 Output Report `0xB3 + 0x06` 查询，并从 Input Report `0xB4` 解析电量；Keychron M6 读取 Feature Report `0x51` 的电量和充电状态。两者各自发布为独立的 macOS Accessory Power Source，JZM5 还可选通过 AirBattery Nearcast 在本机同步。
 
 ## Contributors
 

@@ -5,13 +5,32 @@ import IOKit.hid
 import MultipeerConnectivity
 import ServiceManagement
 
-private let vendorID = 0x362D
-private let productID = 0xD107
-private let productDisplayName = "京东京造 JZM5"
-private let appName = "京东京造 JZM5 电量"
-private let lastBatteryKey = "lastBattery"
-private let lastChargingKey = "lastCharging"
+private let appName = "余电"
 private let nearcastGroupKey = "nearcastGroupID"
+
+private struct SupportedDevice {
+    let name: String
+    let identifier: String
+    let vendorID: Int
+    let receiverProductID: Int
+    let accessoryProductID: Int
+}
+
+private let jzm5Device = SupportedDevice(
+    name: "京东京造 JZM5",
+    identifier: "JZM5-2.4G",
+    vendorID: 0x362D,
+    receiverProductID: 0xD107,
+    accessoryProductID: 0xD20F
+)
+
+private let keychronM6Device = SupportedDevice(
+    name: "Keychron M6",
+    identifier: "Keychron-M6-2.4G",
+    vendorID: 0x3434,
+    receiverProductID: 0xD030,
+    accessoryProductID: 0xD03F
+)
 
 private typealias PowerSourceID = UnsafeMutableRawPointer
 @_silgen_name("IOPSCreatePowerSource") private func IOPSCreatePowerSource(_ source: UnsafeMutablePointer<PowerSourceID?>) -> IOReturn
@@ -24,14 +43,15 @@ private struct BatteryReading: Equatable {
 }
 
 private enum BridgeError: Error, CustomStringConvertible {
-    case noReceiver, open(IOReturn), send(IOReturn), noResponse, powerSource(IOReturn)
+    case noReceiver(String), open(IOReturn), send(IOReturn), noResponse(String), invalidResponse(String), powerSource(IOReturn)
 
     var description: String {
         switch self {
-        case .noReceiver: return "未找到 JZ M5 2.4G 接收器"
+        case .noReceiver(let name): return "未找到 \(name) 2.4G 接收器"
         case .open(let result): return "打开 HID 接收器失败：0x\(String(UInt32(bitPattern: result), radix: 16, uppercase: true))"
         case .send(let result): return "发送查询失败：0x\(String(UInt32(bitPattern: result), radix: 16, uppercase: true))"
-        case .noResponse: return "3 秒内未收到 B4/06 电量回包"
+        case .noResponse(let detail): return detail
+        case .invalidResponse(let detail): return "无效的电量回包：\(detail)"
         case .powerSource(let result): return "发布系统电源项失败：0x\(String(UInt32(bitPattern: result), radix: 16, uppercase: true))"
         }
     }
@@ -39,8 +59,10 @@ private enum BridgeError: Error, CustomStringConvertible {
 
 private final class PowerSource {
     private var source: PowerSourceID?
+    private let device: SupportedDevice
 
-    init() throws {
+    init(device: SupportedDevice) throws {
+        self.device = device
         let result = IOPSCreatePowerSource(&source)
         guard result == kIOReturnSuccess, source != nil else { throw BridgeError.powerSource(result) }
     }
@@ -51,14 +73,14 @@ private final class PowerSource {
 
     func publish(_ reading: BatteryReading?) throws {
         let details: [String: Any] = [
-            "Name": productDisplayName,
+            "Name": device.name,
             "Type": "Accessory Source",
             "Power Source State": "Battery Power",
             "Transport Type": "USB",
             "Accessory Category": "Mouse",
-            "Accessory Identifier": "JZM5-2.4G",
-            "Vendor ID": vendorID,
-            "Product ID": 0xD20F,
+            "Accessory Identifier": device.identifier,
+            "Vendor ID": device.vendorID,
+            "Product ID": device.accessoryProductID,
             "Is Charging": reading?.isCharging ?? false,
             "Is Present": reading != nil,
             "Current Capacity": reading?.percent ?? 0,
@@ -74,8 +96,8 @@ private struct AirBatteryDevice: Encodable {
     let hasBattery: Bool
     let deviceID = "JZM5-2.4G"
     let deviceType = "Mouse"
-    let deviceName = productDisplayName
-    let deviceModel = productDisplayName
+    let deviceName = jzm5Device.name
+    let deviceModel = jzm5Device.name
     let batteryLevel: Int
     let isCharging: Int
     let isCharged = false
@@ -202,11 +224,6 @@ private final class QueryState {
     deinit { buffer.deinitialize(count: 256); buffer.deallocate() }
 }
 
-private func number(_ device: IOHIDDevice, _ key: CFString) -> Int? {
-    guard let value = IOHIDDeviceGetProperty(device, key), CFGetTypeID(value) == CFNumberGetTypeID() else { return nil }
-    return (value as! NSNumber).intValue
-}
-
 private let inputCallback: IOHIDReportCallback = { context, _, _, _, reportID, report, length in
     guard let context, reportID == 0xB4 else { return }
     let state = Unmanaged<QueryState>.fromOpaque(context).takeUnretainedValue()
@@ -218,14 +235,19 @@ private let inputCallback: IOHIDReportCallback = { context, _, _, _, reportID, r
 
 private func readJZM5Battery() throws -> BatteryReading {
     let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-    IOHIDManagerSetDeviceMatching(manager, [kIOHIDVendorIDKey as String: vendorID, kIOHIDProductIDKey as String: productID] as CFDictionary)
+    IOHIDManagerSetDeviceMatching(manager, [
+        kIOHIDVendorIDKey as String: jzm5Device.vendorID,
+        kIOHIDProductIDKey as String: jzm5Device.receiverProductID,
+        kIOHIDPrimaryUsagePageKey as String: 0x008C,
+        kIOHIDPrimaryUsageKey as String: 0x0001
+    ] as CFDictionary)
     let managerResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
     guard managerResult == kIOReturnSuccess else { throw BridgeError.open(managerResult) }
     defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
 
-    guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>, let receiver = devices.first(where: {
-        number($0, kIOHIDPrimaryUsagePageKey as CFString) == 0x008C && number($0, kIOHIDPrimaryUsageKey as CFString) == 0x0001
-    }) else { throw BridgeError.noReceiver }
+    guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>, let receiver = devices.first else {
+        throw BridgeError.noReceiver(jzm5Device.name)
+    }
     let openResult = IOHIDDeviceOpen(receiver, IOOptionBits(kIOHIDOptionsTypeNone))
     guard openResult == kIOReturnSuccess else { throw BridgeError.open(openResult) }
     defer { IOHIDDeviceClose(receiver, IOOptionBits(kIOHIDOptionsTypeNone)) }
@@ -249,16 +271,63 @@ private func readJZM5Battery() throws -> BatteryReading {
     while state.reading == nil && Date() < deadline {
         RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
     }
-    guard let reading = state.reading else { throw BridgeError.noResponse }
+    guard let reading = state.reading else { throw BridgeError.noResponse("3 秒内未收到 JZM5 B4/06 电量回包") }
     return reading
+}
+
+private func readKeychronM6Battery() throws -> BatteryReading {
+    let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+    IOHIDManagerSetDeviceMatching(manager, [
+        kIOHIDVendorIDKey as String: keychronM6Device.vendorID,
+        kIOHIDProductIDKey as String: keychronM6Device.receiverProductID,
+        kIOHIDPrimaryUsagePageKey as String: 0x008C,
+        kIOHIDPrimaryUsageKey as String: 0x0001
+    ] as CFDictionary)
+    let managerResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+    guard managerResult == kIOReturnSuccess else { throw BridgeError.open(managerResult) }
+    defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
+
+    guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>, let receiver = devices.first else {
+        throw BridgeError.noReceiver(keychronM6Device.name)
+    }
+    let openResult = IOHIDDeviceOpen(receiver, IOOptionBits(kIOHIDOptionsTypeNone))
+    guard openResult == kIOReturnSuccess else { throw BridgeError.open(openResult) }
+    defer { IOHIDDeviceClose(receiver, IOOptionBits(kIOHIDOptionsTypeNone)) }
+
+    var report = [UInt8](repeating: 0, count: 21)
+    report[0] = 0x51
+    var reportLength = report.count
+    let result = report.withUnsafeMutableBytes { bytes in
+        IOHIDDeviceGetReport(
+            receiver,
+            kIOHIDReportTypeFeature,
+            0x51,
+            bytes.bindMemory(to: UInt8.self).baseAddress!,
+            &reportLength
+        )
+    }
+    guard result == kIOReturnSuccess else { throw BridgeError.send(result) }
+    guard reportLength > 12, report[0] == 0x51 else {
+        throw BridgeError.invalidResponse("Keychron 0x51 Feature Report 长度或报告 ID 不正确")
+    }
+
+    let percent = Int(report[11])
+    guard (0...100).contains(percent) else {
+        throw BridgeError.invalidResponse("Keychron M6 电量为 \(percent)%")
+    }
+    return BatteryReading(percent: percent, isCharging: (report[12] & 0x03) != 0)
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var timer: Timer?
-    private var powerSource: PowerSource?
+    private var jzm5PowerSource: PowerSource?
+    private var keychronPowerSource: PowerSource?
     private var nearcast: NearcastSender?
-    private var lastReading: BatteryReading?
+    private var lastJZM5Reading: BatteryReading?
+    private var jzm5StatusItem: NSMenuItem?
+    private var keychronStatusItem: NSMenuItem?
+    private var deviceSeparatorItem: NSMenuItem?
     private var launchItem: NSMenuItem?
     private var permissionItem: NSMenuItem?
 
@@ -266,6 +335,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         let menu = NSMenu()
         menu.delegate = self
+        let jzm5Status = NSMenuItem(title: statusTitle(for: jzm5Device, reading: nil), action: nil, keyEquivalent: "")
+        jzm5Status.isEnabled = false
+        jzm5Status.isHidden = true
+        menu.addItem(jzm5Status)
+        jzm5StatusItem = jzm5Status
+        let keychronStatus = NSMenuItem(title: statusTitle(for: keychronM6Device, reading: nil), action: nil, keyEquivalent: "")
+        keychronStatus.isEnabled = false
+        keychronStatus.isHidden = true
+        menu.addItem(keychronStatus)
+        keychronStatusItem = keychronStatus
+        let deviceSeparator = NSMenuItem.separator()
+        deviceSeparator.isHidden = true
+        menu.addItem(deviceSeparator)
+        deviceSeparatorItem = deviceSeparator
         let permission = NSMenuItem(title: permissionTitle, action: #selector(requestInputMonitoring), keyEquivalent: "")
         permission.target = self
         menu.addItem(permission)
@@ -279,15 +362,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quit.target = self
         menu.addItem(quit)
         statusItem.menu = menu
-        statusItem.button?.image = NSImage(systemSymbolName: "computermouse", accessibilityDescription: appName)
+        statusItem.button?.image = NSImage(systemSymbolName: "battery.100percent", accessibilityDescription: appName)
         statusItem.button?.image?.isTemplate = true
 
         do {
-            powerSource = try PowerSource()
-            if let battery = UserDefaults.standard.object(forKey: lastBatteryKey) as? Int {
-                lastReading = BatteryReading(percent: battery, isCharging: UserDefaults.standard.integer(forKey: lastChargingKey) == 1)
-                try powerSource?.publish(lastReading)
-            }
+            jzm5PowerSource = try PowerSource(device: jzm5Device)
+            keychronPowerSource = try PowerSource(device: keychronM6Device)
         } catch { present(error) }
         startNearcastIfConfigured()
         DispatchQueue.main.async { [weak self] in self?.updateBattery() }
@@ -310,7 +390,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let alert = NSAlert()
         alert.messageText = "需要输入监控权限"
-        alert.informativeText = "请在系统设置的“隐私与安全性 → 输入监控”中允许 JZ M5 电量。"
+        alert.informativeText = "请在系统设置的“隐私与安全性 → 输入监控”中允许余电。"
         alert.addButton(withTitle: "打开系统设置")
         alert.addButton(withTitle: "稍后处理")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -327,15 +407,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateBattery() {
         do {
             let reading = try readJZM5Battery()
-            lastReading = reading
-            UserDefaults.standard.set(reading.percent, forKey: lastBatteryKey)
-            UserDefaults.standard.set(reading.isCharging ? 1 : 0, forKey: lastChargingKey)
-            try powerSource?.publish(reading)
+            lastJZM5Reading = reading
+            try jzm5PowerSource?.publish(reading)
+            jzm5StatusItem?.title = statusTitle(for: jzm5Device, reading: reading)
+            jzm5StatusItem?.isHidden = false
+            updateDeviceSeparator()
             startNearcastIfConfigured()
             nearcast?.update(reading)
+        } catch BridgeError.noReceiver {
+            markDisconnected(powerSource: jzm5PowerSource, statusItem: jzm5StatusItem)
         } catch {
-            NSLog("\(appName): \(error)")
+            NSLog("\(appName) [JZM5]: \(error)")
         }
+
+        do {
+            let reading = try readKeychronM6Battery()
+            try keychronPowerSource?.publish(reading)
+            keychronStatusItem?.title = statusTitle(for: keychronM6Device, reading: reading)
+            keychronStatusItem?.isHidden = false
+            updateDeviceSeparator()
+        } catch BridgeError.noReceiver {
+            markDisconnected(powerSource: keychronPowerSource, statusItem: keychronStatusItem)
+        } catch {
+            NSLog("\(appName) [Keychron M6]: \(error)")
+        }
+    }
+
+    private func statusTitle(for device: SupportedDevice, reading: BatteryReading?) -> String {
+        guard let reading else { return "\(device.name)：--" }
+        return "\(device.name)：\(reading.percent)%\(reading.isCharging ? "（充电中）" : "")"
+    }
+
+    private func markDisconnected(powerSource: PowerSource?, statusItem: NSMenuItem?) {
+        statusItem?.isHidden = true
+        updateDeviceSeparator()
+        do {
+            try powerSource?.publish(nil)
+        } catch {
+            present(error)
+        }
+    }
+
+    private func updateDeviceSeparator() {
+        deviceSeparatorItem?.isHidden = (jzm5StatusItem?.isHidden != false && keychronStatusItem?.isHidden != false)
     }
 
     private func startNearcastIfConfigured() {
@@ -344,7 +458,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let sender = NearcastSender(groupID: groupID, requestRefresh: refreshAirBattery) else { return }
         nearcast = sender
         sender.start()
-        if let lastReading { sender.update(lastReading) }
+        if let lastJZM5Reading { sender.update(lastJZM5Reading) }
     }
 
     private func refreshAirBattery() {
