@@ -21,42 +21,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let drivers = DriverRegistry.all
     private let displayedDeviceDefaultsKey = "statusBarDeviceIdentifier"
+    private let displaysBatteryDefaultsKey = "displaysBatteryInStatusBar"
     private var timer: Timer?
     private var metadataObserver: NSObjectProtocol?
     private var monitors: [String: DeviceMonitor] = [:]
     private var displayedDeviceIdentifier: String?
     private var displayedDeviceItem: NSMenuItem?
-    private var deviceSeparatorItem: NSMenuItem?
+    private var displaysBatteryItem: NSMenuItem?
     private var launchItem: NSMenuItem?
-    private var permissionItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let menu = NSMenu()
         menu.delegate = self
 
-        let displayedDevice = NSMenuItem(title: "菜单栏显示", action: nil, keyEquivalent: "")
-        displayedDevice.submenu = NSMenu(title: "菜单栏显示")
+        let displayedDevice = NSMenuItem(title: localized("Displayed Device"), action: nil, keyEquivalent: "")
+        displayedDevice.submenu = NSMenu(title: localized("Displayed Device"))
         displayedDevice.isHidden = true
         menu.addItem(displayedDevice)
         displayedDeviceItem = displayedDevice
 
+        let displaysBattery = NSMenuItem(
+            title: localized("Show Battery Level in Menu Bar"),
+            action: #selector(toggleBatteryInStatusBar),
+            keyEquivalent: ""
+        )
+        displaysBattery.target = self
+        displaysBattery.state = displaysBatteryInStatusBar ? .on : .off
+        menu.addItem(displaysBattery)
+        displaysBatteryItem = displaysBattery
+
         let deviceSeparator = NSMenuItem.separator()
-        deviceSeparator.isHidden = true
         menu.addItem(deviceSeparator)
-        deviceSeparatorItem = deviceSeparator
 
-        let permission = NSMenuItem(title: permissionTitle, action: #selector(requestInputMonitoring), keyEquivalent: "")
-        permission.target = self
-        menu.addItem(permission)
-        permissionItem = permission
-
-        let launch = NSMenuItem(title: "开机启动", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        let launch = NSMenuItem(title: localized("Launch at Login"), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         launch.target = self
         launch.state = launchAtLoginEnabled ? .on : .off
         menu.addItem(launch)
         launchItem = launch
 
-        let quit = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 
@@ -85,12 +88,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var launchAtLoginEnabled: Bool { SMAppService.mainApp.status == .enabled }
     private var inputMonitoringGranted: Bool { IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted }
-    private var permissionTitle: String { inputMonitoringGranted ? "输入监控授权（已授权）" : "输入监控授权…" }
-
     func menuWillOpen(_ menu: NSMenu) {
         updateDisplayedDeviceMenu()
-        permissionItem?.title = permissionTitle
-        permissionItem?.isEnabled = !inputMonitoringGranted
+        displaysBatteryItem?.state = displaysBatteryInStatusBar ? .on : .off
         launchItem?.state = launchAtLoginEnabled ? .on : .off
     }
 
@@ -99,10 +99,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if IOHIDRequestAccess(kIOHIDRequestTypeListenEvent) { return }
 
         let alert = NSAlert()
-        alert.messageText = "需要输入监控权限"
-        alert.informativeText = "请在系统设置的“隐私与安全性 → 输入监控”中允许 PowerLeft。"
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "稍后处理")
+        alert.messageText = localized("Input Monitoring Permission Required")
+        alert.informativeText = localized("Allow PowerLeft in System Settings under Privacy & Security → Input Monitoring.")
+        alert.addButton(withTitle: localized("Open System Settings"))
+        alert.addButton(withTitle: localized("Later"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
     }
@@ -147,7 +147,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func publish(_ reading: DeviceBatteryReading, from driver: any BatteryDriver) throws {
         guard (0...100).contains(reading.battery.percent) else {
-            throw BridgeError.invalidResponse("\(reading.device.name) 电量为 \(reading.battery.percent)%")
+            throw BridgeError.invalidResponse(
+                localized("%@ battery is %d%%", reading.device.name, reading.battery.percent)
+            )
         }
 
         let monitor: DeviceMonitor
@@ -178,8 +180,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func statusTitle(for device: DeviceDescriptor, reading: BatteryReading?) -> String {
-        guard let reading else { return "\(device.name)：--" }
-        return "\(device.name)：\(reading.percent)%\(reading.isCharging ? "（充电中）" : "")"
+        guard let reading else { return localized("%@: --", device.name) }
+        return reading.isCharging
+            ? localized("%@: %d%% (Charging)", device.name, reading.percent)
+            : localized("%@: %d%%", device.name, reading.percent)
     }
 
     private func markDisconnected(_ monitor: DeviceMonitor) {
@@ -194,7 +198,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateDeviceControls() {
-        deviceSeparatorItem?.isHidden = monitors.values.allSatisfy(\.statusItem.isHidden)
         updateDisplayedDeviceMenu()
         updateStatusBarPresentation()
     }
@@ -221,12 +224,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateStatusBarPresentation() {
         guard let button = statusItem.button else { return }
-        guard let monitor = displayedMonitor(), let reading = monitor.lastReading else {
-            let image = NSImage(systemSymbolName: "battery.0percent", accessibilityDescription: "未连接设备")
+        guard displaysBatteryInStatusBar else {
+            let image = NSImage(systemSymbolName: "battery.100percent", accessibilityDescription: appName)
             image?.isTemplate = true
             button.image = image
             button.title = ""
-            button.toolTip = "\(appName)：未连接设备"
+            button.toolTip = appName
+            return
+        }
+        guard let monitor = displayedMonitor(), let reading = monitor.lastReading else {
+            let image = NSImage(
+                systemSymbolName: "battery.0percent",
+                accessibilityDescription: localized("No Connected Device")
+            )
+            image?.isTemplate = true
+            button.image = image
+            button.title = ""
+            button.toolTip = localized("%@: No Connected Device", appName)
             return
         }
 
@@ -274,6 +288,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case ...85: return "battery.75percent"
         default: return "battery.100percent"
         }
+    }
+
+    private var displaysBatteryInStatusBar: Bool {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: displaysBatteryDefaultsKey) != nil else { return true }
+        return defaults.bool(forKey: displaysBatteryDefaultsKey)
+    }
+
+    @objc private func toggleBatteryInStatusBar() {
+        UserDefaults.standard.set(!displaysBatteryInStatusBar, forKey: displaysBatteryDefaultsKey)
+        displaysBatteryItem?.state = displaysBatteryInStatusBar ? .on : .off
+        updateStatusBarPresentation()
     }
 
     @objc private func selectDisplayedDevice(_ sender: NSMenuItem) {

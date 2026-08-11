@@ -2,30 +2,30 @@ import AppIntents
 import Foundation
 
 struct DeviceBatteryEntity: AppEntity, Identifiable {
-    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "设备电量")
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Device Battery")
     static let defaultQuery = DeviceBatteryEntityQuery()
 
     var id: String { identifier }
 
-    @Property(title: "设备标识符")
+    @Property(title: "Device Identifier")
     var identifier: String
 
-    @Property(title: "设备名称")
+    @Property(title: "Device Name")
     var name: String
 
-    @Property(title: "设备类型")
+    @Property(title: "Device Type")
     var category: String
 
-    @Property(title: "电量")
+    @Property(title: "Battery Level")
     var percent: Int
 
-    @Property(title: "正在充电")
+    @Property(title: "Is Charging")
     var isCharging: Bool
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(
             title: "\(name)",
-            subtitle: "\(percent)% · \(isCharging ? "充电中" : "使用电池")"
+            subtitle: "\(percent)% · \(isCharging ? String(localized: "Charging") : String(localized: "On Battery"))"
         )
     }
 
@@ -50,15 +50,17 @@ struct DeviceBatteryEntityQuery: EntityQuery {
 }
 
 struct GetDeviceBatteriesIntent: AppIntent {
-    static let title: LocalizedStringResource = "获取设备电量"
-    static let description = IntentDescription("获取 PowerLeft 当前检测到的已连接设备及其实时电量和充电状态。")
+    static let title: LocalizedStringResource = "Get Device Batteries"
+    static let description = IntentDescription(
+        "Get the current battery level and charging state of devices connected to PowerLeft."
+    )
     static let openAppWhenRun = false
 
     func perform() async throws -> some IntentResult & ReturnsValue<[DeviceBatteryEntity]> & ProvidesDialog {
         let devices = DeviceBatteryIntentReader.read()
         let dialog: IntentDialog = devices.isEmpty
-            ? "没有检测到已连接的设备。"
-            : "已获取 \(devices.count) 个设备的电量。"
+            ? "No connected devices were detected."
+            : "Device battery data retrieved."
         return .result(value: devices, dialog: dialog)
     }
 }
@@ -68,10 +70,10 @@ struct PowerLeftShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: GetDeviceBatteriesIntent(),
             phrases: [
-                "使用 \(.applicationName) 获取设备电量",
-                "在 \(.applicationName) 中获取设备电量"
+                "Get device batteries with \(.applicationName)",
+                "Use \(.applicationName) to get device batteries"
             ],
-            shortTitle: "获取设备电量",
+            shortTitle: "Get Device Batteries",
             systemImageName: "battery.100percent"
         )
     }

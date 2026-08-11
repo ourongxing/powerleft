@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "PowerLeft";
+"NSInputMonitoringUsageDescription" = "用于读取已支持的 2.4G 键鼠接收器电量报告。";

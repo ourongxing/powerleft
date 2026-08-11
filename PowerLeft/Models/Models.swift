@@ -3,6 +3,14 @@ import IOKit
 
 let appName = "PowerLeft"
 
+func localized(_ key: String, _ arguments: CVarArg...) -> String {
+    String(
+        format: NSLocalizedString(key, comment: ""),
+        locale: Locale.current,
+        arguments: arguments
+    )
+}
+
 struct DeviceDescriptor: Equatable {
     let name: String
     let identifier: String
@@ -61,17 +69,17 @@ enum BridgeError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .noReceiver(let name):
-            return "未找到 \(name) 2.4G 接收器"
+            return localized("No %@ 2.4 GHz receiver found", name)
         case .open(let result):
-            return "打开 HID 接收器失败：\(Self.hex(result))"
+            return localized("Failed to open HID receiver: %@", Self.hex(result))
         case .send(let result):
-            return "发送查询失败：\(Self.hex(result))"
+            return localized("Failed to send query: %@", Self.hex(result))
         case .noResponse(let detail):
             return detail
         case .invalidResponse(let detail):
-            return "无效的电量回包：\(detail)"
+            return localized("Invalid battery report: %@", detail)
         case .powerSource(let result):
-            return "发布系统电源项失败：\(Self.hex(result))"
+            return localized("Failed to publish system power source: %@", Self.hex(result))
         }
     }
 

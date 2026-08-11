@@ -5,7 +5,7 @@ struct JZM5Driver: BatteryDriver {
     let name = "JZM5"
 
     let device = DeviceDescriptor(
-        name: "京东京造 JZM5",
+        name: localized("Jingzao JZM5"),
         identifier: "JZM5-2.4G",
         category: "Mouse",
         vendorID: 0x362D,
@@ -50,7 +50,9 @@ struct JZM5Driver: BatteryDriver {
                 RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
             }
             guard let reading = state.reading else {
-                throw BridgeError.noResponse("3 秒内未收到 JZM5 B4/06 电量回包")
+                throw BridgeError.noResponse(
+                    localized("Did not receive JZM5 B4/06 battery response within 3 seconds")
+                )
             }
             return reading
         }

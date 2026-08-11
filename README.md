@@ -10,11 +10,14 @@ PowerLeft brings battery levels from supported 2.4 GHz mice and keyboards into t
 - Displays the selected device's battery level and charging state directly in the menu bar.
 - Lets you choose which device appears in the menu bar when multiple devices are connected.
 - Provides a Shortcuts action that returns structured battery data for every connected device.
+- Uses English by default and includes a complete Simplified Chinese localization.
 - Hides disconnected devices automatically.
 - Polls devices in the background without keeping a vendor driver open.
 - Uses independent device drivers so more mice and keyboards can be added easily.
 
 PowerLeft resolves Keychron model names from the Keychron Launcher product service and caches them locally. The lookup runs only when a previously unseen product ID is connected. If the network or service is unavailable, the device remains usable and is shown as `Keychron Keyboard 0xPPPP` or `Keychron Mouse 0xPPPP`. No model requires a device-specific application driver.
+
+macOS selects the app language from the user's per-app or system language settings. The product and display name remain `PowerLeft` in every language.
 
 ## Development
 

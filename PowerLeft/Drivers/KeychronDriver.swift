@@ -51,18 +51,22 @@ struct KeychronDriver: BatteryDriver {
         }
         guard result == kIOReturnSuccess else { throw BridgeError.send(result) }
         guard reportLength > 12, report[0] == 0x51 else {
-            throw BridgeError.invalidResponse("Keychron 0x51 Feature Report 长度或报告 ID 不正确")
+            throw BridgeError.invalidResponse(
+                localized("Keychron 0x51 Feature Report has an invalid length or report ID")
+            )
         }
         let vendorID = Int(report[4]) << 8 | Int(report[5])
         let productID = Int(report[7]) << 8 | Int(report[6])
         guard report[2] == 1, vendorID != 0, productID != 0 else { return nil }
         guard vendorID == receiver.vendorID else {
-            throw BridgeError.invalidResponse("Keychron 配对设备 VID 为 0x\(hex(vendorID))")
+            throw BridgeError.invalidResponse(
+                localized("Paired Keychron device VID is 0x%@", hex(vendorID))
+            )
         }
 
         let percent = Int(report[11])
         guard (0...100).contains(percent) else {
-            throw BridgeError.invalidResponse("Keychron 设备电量为 \(percent)%")
+            throw BridgeError.invalidResponse(localized("Keychron device battery is %d%%", percent))
         }
 
         let locationID = HIDDeviceAccess.locationID(of: receiver)

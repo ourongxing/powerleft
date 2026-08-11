@@ -19,6 +19,9 @@
 		30000000000000000000000D /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 200000000000000000000005 /* ServiceManagement.framework */; };
 		30000000000000000000000E /* DeviceBatteryIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* DeviceBatteryIntent.swift */; };
 		30000000000000000000000F /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* AppIntents.framework */; };
+		300000000000000000000010 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 40000000000000000000000A /* Localizable.strings */; };
+		300000000000000000000011 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 40000000000000000000000B /* InfoPlist.strings */; };
+		300000000000000000000012 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = 40000000000000000000000C /* AppShortcuts.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +35,12 @@
 		100000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		10000000000000000000000A /* PowerLeft.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PowerLeft.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		10000000000000000000000B /* DeviceBatteryIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceBatteryIntent.swift; sourceTree = "<group>"; };
+		10000000000000000000000C /* en Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		10000000000000000000000D /* zh-Hans Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		10000000000000000000000E /* en InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		10000000000000000000000F /* zh-Hans InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		100000000000000000000010 /* en AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/AppShortcuts.strings; sourceTree = "<group>"; };
+		100000000000000000000011 /* zh-Hans AppShortcuts.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/AppShortcuts.strings"; sourceTree = "<group>"; };
 		200000000000000000000001 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		200000000000000000000002 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		200000000000000000000003 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
@@ -136,11 +145,44 @@
 			isa = PBXGroup;
 			children = (
 				100000000000000000000009 /* Info.plist */,
+				40000000000000000000000A /* Localizable.strings */,
+				40000000000000000000000B /* InfoPlist.strings */,
+				40000000000000000000000C /* AppShortcuts.strings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXVariantGroup section */
+		40000000000000000000000A /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				10000000000000000000000C /* en Localizable.strings */,
+				10000000000000000000000D /* zh-Hans Localizable.strings */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		40000000000000000000000B /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				10000000000000000000000E /* en InfoPlist.strings */,
+				10000000000000000000000F /* zh-Hans InfoPlist.strings */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		40000000000000000000000C /* AppShortcuts.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				100000000000000000000010 /* en AppShortcuts.strings */,
+				100000000000000000000011 /* zh-Hans AppShortcuts.strings */,
+			);
+			name = AppShortcuts.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXNativeTarget section */
 		500000000000000000000001 /* PowerLeft */ = {
@@ -179,6 +221,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 400000000000000000000001;
@@ -195,7 +238,11 @@
 		600000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (
+				300000000000000000000010 /* Localizable.strings in Resources */,
+				300000000000000000000011 /* InfoPlist.strings in Resources */,
+				300000000000000000000012 /* AppShortcuts.strings in Resources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */

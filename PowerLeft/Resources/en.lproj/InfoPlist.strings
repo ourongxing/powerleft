@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "PowerLeft";
+"NSInputMonitoringUsageDescription" = "Used to read battery reports from supported 2.4 GHz mouse and keyboard receivers.";

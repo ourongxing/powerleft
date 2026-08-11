@@ -4,6 +4,8 @@
 <dict>
     <key>CFBundleDisplayName</key>
     <string>PowerLeft</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -25,7 +27,7 @@
     <key>LSUIElement</key>
     <false/>
     <key>NSInputMonitoringUsageDescription</key>
-    <string>用于读取已支持的 2.4G 键鼠接收器电量报告。</string>
+    <string>Used to read battery reports from supported 2.4 GHz mouse and keyboard receivers.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>
