@@ -1,74 +1,73 @@
-# 余电 PowerLeft
+# PowerLeft
 
-让 macOS 电池小组件显示京东京造 JZM5 和 Keychron M6 的 2.4G 模式电量。JZM5 还可选同步到 [AirBattery](https://github.com/lihaoyun6/AirBattery)。
+PowerLeft reads battery data from supported 2.4 GHz HID receivers and publishes each connected device as a native macOS accessory power source. Battery levels then appear in the macOS Batteries widget without requiring a vendor driver to remain open.
 
-程序直接读取接收器的私有 HID 电量报告，每分钟更新一次电量和充电状态，并在菜单栏提供权限状态、开机启动和退出选项。它不会修改 AirBattery，也不会写入 AirBattery 的容器目录。
+Disconnected devices are hidden automatically. PowerLeft polls connected receivers once per minute and keeps the last valid reading if a receiver is present but a single query fails.
 
-![macOS 电池小组件显示京东京造 JZM5 电量](assets/macos-battery-widgets.png)
+![PowerLeft devices in the macOS Batteries widget](assets/macos-battery-widgets.png)
 
-## 下载与启动
+## Supported devices
 
-1. 从 Releases 下载 `PowerLeft.app.zip`，解压后把应用拖到“应用程序”。
-2. 本项目没有 Apple Developer ID 签名和公证。若 macOS 提示应用已损坏或无法验证开发者，只移除本应用的下载隔离属性：
+| Device | Receiver VID | Receiver PID | Connection |
+| --- | --- | --- | --- |
+| Jingzao JZM5 | `0x362D` | `0xD107` | 2.4 GHz |
+| Keychron M6 | `0x3434` | `0xD030` | 2.4 GHz |
 
-   ```bash
-   sudo xattr -dr com.apple.quarantine /Applications/PowerLeft.app
-   ```
+Bluetooth mode is not supported. The device must already be paired with its receiver.
 
-3. 启动应用，点击菜单栏电池图标里的“输入监控授权…”，再到“系统设置 → 隐私与安全性 → 输入监控”允许“余电”。授权后重新启动应用。
+## Installation
 
-不要使用 `spctl --master-disable` 全局关闭 Gatekeeper。
+1. Download `PowerLeft.app.zip` from Releases.
+2. Extract the archive and move `PowerLeft.app` to `/Applications`.
+3. Launch PowerLeft and select **Input Monitoring Permission** from its menu bar item.
+4. Allow PowerLeft under **System Settings → Privacy & Security → Input Monitoring**, then restart the app.
+
+Releases are ad-hoc signed and are not notarized with an Apple Developer ID. If macOS blocks the downloaded app, remove the quarantine attribute from PowerLeft only:
+
+```bash
+sudo xattr -dr com.apple.quarantine /Applications/PowerLeft.app
+```
+
+Do not disable Gatekeeper globally.
 
 ## AirBattery Nearcast
 
-AirBattery 不是必需的；macOS 电池小组件可由本程序独立更新。目前 Nearcast 只同步 JZM5。需要同步时：
+AirBattery is optional. PowerLeft publishes directly to the macOS Batteries widget without it. Nearcast integration currently applies to the JZM5 only.
 
-1. 在 AirBattery 设置中开启 Nearcast。
-2. 在终端运行一次下面的命令，把 AirBattery 的 Nearcast 群组 ID 写入本程序自己的偏好设置：
+1. Enable Nearcast in [AirBattery](https://github.com/lihaoyun6/AirBattery).
+2. Copy the AirBattery Nearcast group ID into PowerLeft preferences:
 
    ```bash
    defaults write local.jzm5.batterytray nearcastGroupID \
      "$(defaults read com.lihaoyun6.AirBattery ncGroupID)"
    ```
 
-3. 重新启动 `PowerLeft.app`，并在 macOS 询问时允许其访问本地网络。
+3. Restart PowerLeft and allow local network access when prompted.
 
-群组 ID 不会写入应用包或上传到网络。AirBattery 重置群组 ID、重新安装或换 Mac 后，需要重新执行上述命令。
+The group ID stays in PowerLeft preferences and is not embedded in the app or uploaded. Repeat the command if AirBattery resets its group ID.
 
-## 注意事项
+## Build from source
 
-- 已适配京东京造 JZM5 接收器 `VID 0x362D / PID 0xD107` 和 Keychron M6 接收器 `VID 0x3434 / PID 0xD030`。
-- 当前只支持这两款鼠标的 2.4G 模式，不适用于蓝牙模式；键盘支持将在后续加入。
-- 鼠标必须已与接收器配对；网页驱动运行时可能占用 HID 接口，测试前请关闭相关页面。
-- 应用需要“输入监控”权限读取 HID 报告；Nearcast 还需要“本地网络”权限。
-- 应用启动时立即查询一次，之后每 60 秒查询。未连接的设备不会显示；接收器仍在但单次读取失败时保留上一次有效电量，不会发布假 `0%`。
-- 应用退出后，macOS 电源项会消失；AirBattery 会收到离线状态，但其界面或小组件可能要等下一次时间线刷新才消失。
-- 系统电池小组件的刷新由 macOS 调度，显示可能比真实电量晚一个刷新周期。
-- 系统电源项使用 macOS 的非公开 IOKit 接口，未来系统版本可能改变行为。
-- Release 为 Apple Silicon（arm64）版本。Intel Mac 可从源码自行构建。
+Requirements:
 
-## 从源码构建
-
-需要 macOS 13 或更高版本及 Xcode Command Line Tools：
+- macOS 13 or later
+- Xcode Command Line Tools
+- Apple Silicon Mac for the default build target
 
 ```bash
 ./build.sh
 open dist/PowerLeft.app
 ```
 
-构建脚本使用 ad-hoc 签名，不需要开发者证书。产物位于 `dist/PowerLeft.app`。
+The build script creates an ad-hoc signed app at `dist/PowerLeft.app`.
 
-开发驱动时可以执行一次性硬件读取，不启动菜单栏应用：
+Run a single hardware diagnostic without starting the menu bar app:
 
 ```bash
 dist/PowerLeft.app/Contents/MacOS/PowerLeft --once
 ```
 
-## 工作原理
-
-程序只打开接收器的 `Usage Page 0x008C / Usage 0x01` 管理接口。JZM5 通过 Output Report `0xB3 + 0x06` 查询，并从 Input Report `0xB4` 解析电量；Keychron M6 读取 Feature Report `0x51` 的电量和充电状态。两者各自发布为独立的 macOS Accessory Power Source，JZM5 还可选通过 AirBattery Nearcast 在本机同步。
-
-## 项目结构
+## Architecture
 
 ```text
 Sources/
@@ -83,22 +82,31 @@ Sources/
 └── main.swift
 ```
 
-- `BatteryDriver` 定义所有设备驱动共同的电量读取接口。
-- `HIDDeviceAccess` 负责匹配、打开和关闭 HID 管理接口。
-- `DriverRegistry` 是支持设备的唯一注册入口。
-- `AppDelegate` 只负责轮询驱动、更新菜单和处理设备在线状态。
-- `PowerSource` 将任意驱动的读数发布到 macOS 电池组件。
+- `BatteryDriver` defines the common interface for device-specific battery readers.
+- `HIDDeviceAccess` owns shared HID matching, opening, and cleanup.
+- `DriverRegistry` is the single registration point for supported devices.
+- `AppDelegate` handles polling, menu state, and connection state generically.
+- `PowerSource` publishes validated readings to the macOS Batteries widget.
 
-### 添加新设备
+### Add a device
 
-1. 在 `Sources/Drivers` 新建一个实现 `BatteryDriver` 的驱动。
-2. 提供设备名称、类别、VID/PID 和稳定的唯一标识符。
-3. 在 `readBattery()` 中完成该设备的协议查询，返回 `BatteryReading`。
-4. 将驱动实例加入 `Models.swift` 中的 `DriverRegistry.all`。
+1. Add a `BatteryDriver` implementation under `Sources/Drivers`.
+2. Define its name, accessory category, VID/PID values, and stable identifier.
+3. Implement its HID query in `readBattery()` and return a validated `BatteryReading`.
+4. Register the driver in `DriverRegistry.all` in `Sources/Models.swift`.
 
-菜单项、断开隐藏、定时轮询和系统电源项均由公共层自动处理。键盘驱动只需把设备类别设为 `Keyboard`。
+The shared layer automatically handles polling, menu presentation, disconnected-device hiding, and macOS power-source publishing. Use `Keyboard` as the accessory category for keyboard drivers.
+
+## Protocol notes
+
+PowerLeft opens only the receiver management interface at Usage Page `0x008C`, Usage `0x01`.
+
+- JZM5 sends Output Report `0xB3 + 0x06` and parses the battery state from Input Report `0xB4`.
+- Keychron M6 reads battery and charging state from Feature Report `0x51`.
+
+PowerLeft uses an undocumented macOS IOKit power-source interface. A future macOS release may change or remove this behavior. A browser-based device configurator may also hold exclusive access to the HID interface; close it before troubleshooting PowerLeft.
 
 ## Contributors
 
 - LANMIN-X
-- OpenAI Codex：协助协议分析、macOS 桥接实现与文档整理
+- OpenAI Codex — protocol analysis, macOS bridge implementation, and project architecture
