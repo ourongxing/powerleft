@@ -20,6 +20,13 @@ final class PowerSource {
         if let source { _ = IOPSReleasePowerSource(source) }
     }
 
+    func remove() throws {
+        guard let source else { return }
+        let result = IOPSReleasePowerSource(source)
+        guard result == kIOReturnSuccess else { throw BridgeError.powerSource(result) }
+        self.source = nil
+    }
+
     func publish(_ reading: BatteryReading?) throws {
         let details: [String: Any] = [
             "Name": device.name,

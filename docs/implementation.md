@@ -69,7 +69,7 @@ Disconnected receivers produce no reading, so their previous menu and battery-wi
 
 Each reading provides a `DeviceDescriptor` containing its display name, category, receiver VID/PID, accessory PID, and stable identifier. `PowerSource` converts this metadata and the latest reading into an `Accessory Source` dictionary and submits it through `IOPSSetPowerSourceDetails`.
 
-The source is marked absent when its receiver is disconnected, which removes it from the macOS Batteries widget. The IOKit power-source API used here is undocumented and may change in future macOS releases.
+The source is released when its receiver is disconnected, which unregisters it from the macOS Batteries widget. Merely marking a source absent can leave a blank accessory behind in the widget. The IOKit power-source API used here is undocumented and may change in future macOS releases.
 
 ## Driver extension
 

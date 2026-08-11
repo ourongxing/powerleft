@@ -103,15 +103,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             do {
                 let readings = try driver.readBatteries()
                 let connectedIdentifiers = Set(readings.map(\.device.identifier))
-                for monitor in monitors.values where monitor.driverName == driver.name
-                    && !connectedIdentifiers.contains(monitor.device.identifier) {
+                let disconnected = monitors.values.filter {
+                    $0.driverName == driver.name && !connectedIdentifiers.contains($0.device.identifier)
+                }
+                for monitor in disconnected {
                     markDisconnected(monitor)
                 }
                 for reading in readings {
                     try publish(reading, from: driver)
                 }
-            } catch BridgeError.noReceiver {
-                for monitor in monitors.values where monitor.driverName == driver.name {
+            } catch BridgeError.noReceiver, BridgeError.noResponse {
+                let disconnected = monitors.values.filter { $0.driverName == driver.name }
+                for monitor in disconnected {
                     markDisconnected(monitor)
                 }
             } catch {
@@ -155,14 +158,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func markDisconnected(_ monitor: DeviceMonitor) {
-        monitor.statusItem.isHidden = true
-        monitor.lastReading = nil
-        updateDeviceSeparator()
         do {
-            try monitor.powerSource.publish(nil)
+            try monitor.powerSource.remove()
         } catch {
             present(error)
         }
+        statusItem.menu?.removeItem(monitor.statusItem)
+        monitors.removeValue(forKey: monitor.device.identifier)
+        updateDeviceSeparator()
     }
 
     private func updateDeviceSeparator() {
