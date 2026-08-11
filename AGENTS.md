@@ -1,5 +1,12 @@
 # PowerLeft Repository Instructions
 
+## Repository identity
+
+- Treat `ourongxing/powerleft` as an independent repository and the canonical source of truth.
+- Do not fetch, compare, merge, cherry-pick, or otherwise synchronize changes from the repository this project was originally forked from.
+- Do not preserve upstream compatibility merely for the sake of matching the original project.
+- Only inspect or integrate another repository when the user explicitly requests that specific action.
+
 ## Product requirements
 
 - Keep the product name as `PowerLeft`; use `余电` as the macOS display name.
@@ -31,6 +38,7 @@
 - Use Conventional Commits with a scope: `type(scope): description`.
 - Prefer an appropriate type such as `feat`, `fix`, `refactor`, `docs`, `test`, or `chore`; do not force all commits to use `chore`.
 - Keep descriptions concise and written in imperative lowercase English.
-- Push changes to the `ourongxing/powerleft` fork unless explicitly instructed otherwise.
+- Use `ourongxing/powerleft` as `origin`; do not refer to it as a fork or maintain an upstream remote by default.
+- Push changes to the current branch on `origin` unless explicitly instructed otherwise.
 - Do not create a pull request unless the user explicitly asks for one.
 - Do not rewrite published history unless the user explicitly requests it.
