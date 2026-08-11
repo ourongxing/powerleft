@@ -3,7 +3,7 @@ import IOKit
 
 let appName = "PowerLeft"
 
-struct DeviceDescriptor {
+struct DeviceDescriptor: Equatable {
     let name: String
     let identifier: String
     let category: String

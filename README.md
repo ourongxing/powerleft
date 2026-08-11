@@ -12,7 +12,7 @@ PowerLeft brings battery levels from supported 2.4 GHz mice and keyboards into t
 - Polls devices in the background without keeping a vendor driver open.
 - Uses independent device drivers so more mice and keyboards can be added easily.
 
-Keychron devices are shown as `Keychron Keyboard 0xPPPP` or `Keychron Mouse 0xPPPP`, using the accessory PID reported by the receiver. No model requires a device-specific application driver.
+PowerLeft resolves Keychron model names from the Keychron Launcher product service and caches them locally. The lookup runs only when a previously unseen product ID is connected. If the network or service is unavailable, the device remains usable and is shown as `Keychron Keyboard 0xPPPP` or `Keychron Mouse 0xPPPP`. No model requires a device-specific application driver.
 
 ## Development
 

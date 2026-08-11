@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let drivers = DriverRegistry.all
     private var timer: Timer?
+    private var metadataObserver: NSObjectProtocol?
     private var monitors: [String: DeviceMonitor] = [:]
     private var deviceSeparatorItem: NSMenuItem?
     private var launchItem: NSMenuItem?
@@ -54,12 +55,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "battery.100percent", accessibilityDescription: appName)
         statusItem.button?.image?.isTemplate = true
 
+        metadataObserver = NotificationCenter.default.addObserver(
+            forName: KeychronProductCatalog.didUpdate,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateBattery()
+        }
+
         DispatchQueue.main.async { [weak self] in self?.updateBattery() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             guard let self, self.monitors.values.allSatisfy({ $0.lastReading == nil }) else { return }
             self.updateBattery()
         }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.updateBattery() }
+    }
+
+    deinit {
+        if let metadataObserver { NotificationCenter.default.removeObserver(metadataObserver) }
     }
 
     private var launchAtLoginEnabled: Bool { SMAppService.mainApp.status == .enabled }
@@ -129,9 +142,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         let monitor: DeviceMonitor
-        if let existing = monitors[reading.device.identifier] {
+        if let existing = monitors[reading.device.identifier], existing.device == reading.device {
             monitor = existing
         } else {
+            if let existing = monitors[reading.device.identifier] {
+                markDisconnected(existing)
+            }
             guard let menu = statusItem.menu, let separator = deviceSeparatorItem else { return }
             let item = NSMenuItem(title: statusTitle(for: reading.device, reading: nil), action: nil, keyEquivalent: "")
             item.isEnabled = false

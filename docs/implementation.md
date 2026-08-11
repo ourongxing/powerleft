@@ -53,7 +53,7 @@ isCharging  = (payload[19] & 0x80) != 0
 
 ### Keychron 2.4 GHz devices
 
-The Keychron driver matches every Keychron management interface rather than a fixed receiver PID, allowing 1K, 8K, and newer receiver variants to be discovered. Each receiver returns a 21-byte Feature Report with Report ID `0x51`. The report includes connection state and the paired accessory VID/PID as well as its battery state.
+The Keychron driver matches every Keychron management interface rather than a fixed receiver PID, allowing 1K, 8K, and newer receiver variants to be discovered. It sends command `0x06` through Feature Report `0x51`, waits 200 ms for the receiver to prepare its response, and then reads the 21-byte report. This matches the request-response timing used by Keychron Launcher instead of relying on a cached report. The response includes connection state and the paired accessory VID/PID as well as its battery state.
 
 ```text
 connected   = report[2] == 1
@@ -63,7 +63,9 @@ percent     = report[11]
 isCharging  = (report[12] & 0x03) != 0
 ```
 
-Disconnected receivers produce no reading, so their previous menu and battery-widget entries are removed. The percentage and reported Keychron VID are validated before publication. Accessory PID and receiver location form the stable identifier, allowing multiple Keychron receivers to be shown independently. Every model uses a category-and-PID display name so new models remain usable without application changes or model-specific code.
+Disconnected receivers produce no reading, so their previous menu and battery-widget entries are removed. The percentage and reported Keychron VID are validated before publication. Accessory PID and receiver location form the stable identifier, allowing multiple Keychron receivers to be shown independently.
+
+The VID/PID is also converted to the decimal VPID used by the Keychron Launcher product service. Metadata for an unseen VPID is resolved asynchronously and cached in `UserDefaults`; a successful lookup immediately refreshes the matching power source with its model name and accessory category. Network failures retain the category-and-PID fallback and are retried after a cooldown, so HID polling never depends on the service.
 
 ## macOS power-source publication
 
