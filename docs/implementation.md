@@ -73,6 +73,12 @@ Each reading provides a `DeviceDescriptor` containing its display name, category
 
 The source is released when its receiver is disconnected, which unregisters it from the macOS Batteries widget. Merely marking a source absent can leave a blank accessory behind in the widget. The IOKit power-source API used here is undocumented and may change in future macOS releases.
 
+## Menu bar presentation
+
+The menu bar item combines an SF Symbols battery glyph with the selected device's exact percentage. Charging uses the battery-and-bolt symbol, while battery operation selects the nearest useful quarter-level glyph. Its tooltip and accessibility description include the device name and charging state.
+
+When two or more devices are connected, the menu exposes a `菜单栏显示` submenu with the active device checkmarked. The explicit selection is stored in `UserDefaults`. If that device disconnects, the menu bar temporarily falls back to an available device and automatically restores the saved selection when it reconnects. The selector stays hidden when zero or one device is connected.
+
 ## Driver extension
 
 Adding a device requires only a new `BatteryDriver` implementation and one registry entry:

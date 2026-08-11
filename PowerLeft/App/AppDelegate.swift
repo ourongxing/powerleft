@@ -20,9 +20,12 @@ private final class DeviceMonitor {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let drivers = DriverRegistry.all
+    private let displayedDeviceDefaultsKey = "statusBarDeviceIdentifier"
     private var timer: Timer?
     private var metadataObserver: NSObjectProtocol?
     private var monitors: [String: DeviceMonitor] = [:]
+    private var displayedDeviceIdentifier: String?
+    private var displayedDeviceItem: NSMenuItem?
     private var deviceSeparatorItem: NSMenuItem?
     private var launchItem: NSMenuItem?
     private var permissionItem: NSMenuItem?
@@ -30,6 +33,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let menu = NSMenu()
         menu.delegate = self
+
+        let displayedDevice = NSMenuItem(title: "菜单栏显示", action: nil, keyEquivalent: "")
+        displayedDevice.submenu = NSMenu(title: "菜单栏显示")
+        displayedDevice.isHidden = true
+        menu.addItem(displayedDevice)
+        displayedDeviceItem = displayedDevice
 
         let deviceSeparator = NSMenuItem.separator()
         deviceSeparator.isHidden = true
@@ -52,8 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(quit)
 
         statusItem.menu = menu
-        statusItem.button?.image = NSImage(systemSymbolName: "battery.100percent", accessibilityDescription: appName)
-        statusItem.button?.image?.isTemplate = true
+        updateStatusBarPresentation()
 
         metadataObserver = NotificationCenter.default.addObserver(
             forName: KeychronProductCatalog.didUpdate,
@@ -80,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var permissionTitle: String { inputMonitoringGranted ? "输入监控授权（已授权）" : "输入监控授权…" }
 
     func menuWillOpen(_ menu: NSMenu) {
+        updateDisplayedDeviceMenu()
         permissionItem?.title = permissionTitle
         permissionItem?.isEnabled = !inputMonitoringGranted
         launchItem?.state = launchAtLoginEnabled ? .on : .off
@@ -148,10 +157,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let existing = monitors[reading.device.identifier] {
                 markDisconnected(existing)
             }
-            guard let menu = statusItem.menu, let separator = deviceSeparatorItem else { return }
+            guard let menu = statusItem.menu, let displayedDeviceItem else { return }
             let item = NSMenuItem(title: statusTitle(for: reading.device, reading: nil), action: nil, keyEquivalent: "")
             item.isEnabled = false
-            menu.insertItem(item, at: menu.index(of: separator))
+            menu.insertItem(item, at: menu.index(of: displayedDeviceItem))
             monitor = DeviceMonitor(
                 driverName: driver.name,
                 device: reading.device,
@@ -165,7 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         try monitor.powerSource.publish(reading.battery)
         monitor.statusItem.title = statusTitle(for: monitor.device, reading: reading.battery)
         monitor.statusItem.isHidden = false
-        updateDeviceSeparator()
+        updateDeviceControls()
     }
 
     private func statusTitle(for device: DeviceDescriptor, reading: BatteryReading?) -> String {
@@ -181,11 +190,99 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         statusItem.menu?.removeItem(monitor.statusItem)
         monitors.removeValue(forKey: monitor.device.identifier)
-        updateDeviceSeparator()
+        updateDeviceControls()
     }
 
-    private func updateDeviceSeparator() {
+    private func updateDeviceControls() {
         deviceSeparatorItem?.isHidden = monitors.values.allSatisfy(\.statusItem.isHidden)
+        updateDisplayedDeviceMenu()
+        updateStatusBarPresentation()
+    }
+
+    private func updateDisplayedDeviceMenu() {
+        guard let displayedDeviceItem, let submenu = displayedDeviceItem.submenu else { return }
+        let available = availableMonitors
+        displayedDeviceItem.isHidden = available.count < 2
+        submenu.removeAllItems()
+
+        let selectedIdentifier = displayedMonitor()?.device.identifier
+        for monitor in available {
+            let item = NSMenuItem(
+                title: statusTitle(for: monitor.device, reading: monitor.lastReading),
+                action: #selector(selectDisplayedDevice(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = monitor.device.identifier
+            item.state = monitor.device.identifier == selectedIdentifier ? .on : .off
+            submenu.addItem(item)
+        }
+    }
+
+    private func updateStatusBarPresentation() {
+        guard let button = statusItem.button else { return }
+        guard let monitor = displayedMonitor(), let reading = monitor.lastReading else {
+            let image = NSImage(systemSymbolName: "battery.0percent", accessibilityDescription: "未连接设备")
+            image?.isTemplate = true
+            button.image = image
+            button.title = ""
+            button.toolTip = "\(appName)：未连接设备"
+            return
+        }
+
+        let symbolName = reading.isCharging ? "battery.100percent.bolt" : batterySymbol(for: reading.percent)
+        let description = statusTitle(for: monitor.device, reading: reading)
+        let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
+        image?.isTemplate = true
+        button.image = image
+        button.imagePosition = .imageLeading
+        button.title = " \(reading.percent)%"
+        button.toolTip = description
+    }
+
+    private var availableMonitors: [DeviceMonitor] {
+        monitors.values
+            .filter { $0.lastReading != nil && !$0.statusItem.isHidden }
+            .sorted {
+                let order = $0.device.name.localizedStandardCompare($1.device.name)
+                return order == .orderedSame
+                    ? $0.device.identifier < $1.device.identifier
+                    : order == .orderedAscending
+            }
+    }
+
+    private func displayedMonitor() -> DeviceMonitor? {
+        let available = availableMonitors
+        if let preferred = UserDefaults.standard.string(forKey: displayedDeviceDefaultsKey),
+           let monitor = available.first(where: { $0.device.identifier == preferred }) {
+            displayedDeviceIdentifier = preferred
+            return monitor
+        }
+        if let displayedDeviceIdentifier,
+           let monitor = available.first(where: { $0.device.identifier == displayedDeviceIdentifier }) {
+            return monitor
+        }
+        displayedDeviceIdentifier = available.first?.device.identifier
+        return available.first
+    }
+
+    private func batterySymbol(for percent: Int) -> String {
+        switch percent {
+        case ...10: return "battery.0percent"
+        case ...35: return "battery.25percent"
+        case ...60: return "battery.50percent"
+        case ...85: return "battery.75percent"
+        default: return "battery.100percent"
+        }
+    }
+
+    @objc private func selectDisplayedDevice(_ sender: NSMenuItem) {
+        guard let identifier = sender.representedObject as? String,
+              monitors[identifier]?.lastReading != nil else { return }
+        UserDefaults.standard.set(identifier, forKey: displayedDeviceDefaultsKey)
+        displayedDeviceIdentifier = identifier
+        updateDisplayedDeviceMenu()
+        updateStatusBarPresentation()
     }
 
     private func present(_ error: Error) {

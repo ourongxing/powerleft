@@ -7,7 +7,8 @@ PowerLeft brings battery levels from supported 2.4 GHz mice and keyboards into t
 - Supports Jingzao JZM5 and protocol-compatible Keychron 2.4 GHz devices.
 - Discovers Keychron keyboards and mice from their receiver reports, including new product IDs without an app update.
 - Handles multiple Keychron receivers at the same time.
-- Displays battery level and charging state in macOS.
+- Displays the selected device's battery level and charging state directly in the menu bar.
+- Lets you choose which device appears in the menu bar when multiple devices are connected.
 - Hides disconnected devices automatically.
 - Polls devices in the background without keeping a vendor driver open.
 - Uses independent device drivers so more mice and keyboards can be added easily.
