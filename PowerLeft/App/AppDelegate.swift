@@ -19,13 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var timer: Timer?
     private var monitors: [DeviceMonitor] = []
-    private var nearcast: NearcastSender?
     private var deviceSeparatorItem: NSMenuItem?
     private var launchItem: NSMenuItem?
     private var permissionItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
         let menu = NSMenu()
         menu.delegate = self
         registerDrivers(in: menu)
@@ -54,7 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "battery.100percent", accessibilityDescription: appName)
         statusItem.button?.image?.isTemplate = true
 
-        startNearcastIfConfigured()
         DispatchQueue.main.async { [weak self] in self?.updateBattery() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             guard let self, self.monitors.allSatisfy({ $0.lastReading == nil }) else { return }
@@ -97,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let alert = NSAlert()
         alert.messageText = "需要输入监控权限"
-        alert.informativeText = "请在系统设置的“隐私与安全性 → 输入监控”中允许余电。"
+        alert.informativeText = "请在系统设置的“隐私与安全性 → 输入监控”中允许 PowerLeft。"
         alert.addButton(withTitle: "打开系统设置")
         alert.addButton(withTitle: "稍后处理")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -126,7 +123,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 monitor.statusItem.title = statusTitle(for: monitor.driver.device, reading: reading)
                 monitor.statusItem.isHidden = false
                 updateDeviceSeparator()
-                updateNearcastIfNeeded(for: monitor, reading: reading)
             } catch BridgeError.noReceiver {
                 markDisconnected(monitor)
             } catch {
@@ -153,49 +149,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateDeviceSeparator() {
         deviceSeparatorItem?.isHidden = monitors.allSatisfy(\.statusItem.isHidden)
-    }
-
-    private var nearcastMonitor: DeviceMonitor? {
-        monitors.first { $0.driver.device.supportsNearcast }
-    }
-
-    private func startNearcastIfConfigured() {
-        guard nearcast == nil,
-              let monitor = nearcastMonitor,
-              let groupID = UserDefaults.standard.string(forKey: nearcastGroupKey),
-              let sender = NearcastSender(device: monitor.driver.device, groupID: groupID, requestRefresh: refreshAirBattery) else {
-            return
-        }
-        nearcast = sender
-        sender.start()
-        if let reading = monitor.lastReading { sender.update(reading) }
-    }
-
-    private func updateNearcastIfNeeded(for monitor: DeviceMonitor, reading: BatteryReading) {
-        guard monitor.driver.device.supportsNearcast else { return }
-        startNearcastIfConfigured()
-        nearcast?.update(reading)
-    }
-
-    private func refreshAirBattery() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.openAirBatteryRefresh()
-        }
-    }
-
-    private func openAirBatteryRefresh() {
-        guard let url = URL(string: "airbattery://reloadwingets") else { return }
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
-        NSWorkspace.shared.open(url, configuration: configuration) { _, error in
-            if let error { NSLog("AirBattery background refresh failed: \(error)") }
-        }
-    }
-
-    func applicationWillTerminate(_ notification: Notification) {
-        guard nearcast?.sendOffline() == true else { return }
-        Thread.sleep(forTimeInterval: 0.3)
-        openAirBatteryRefresh()
     }
 
     private func present(_ error: Error) {

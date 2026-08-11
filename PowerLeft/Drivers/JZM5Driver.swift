@@ -8,8 +8,7 @@ struct JZM5Driver: BatteryDriver {
         category: "Mouse",
         vendorID: 0x362D,
         receiverProductID: 0xD107,
-        accessoryProductID: 0xD20F,
-        supportsNearcast: true
+        accessoryProductID: 0xD20F
     )
 
     func readBattery() throws -> BatteryReading {

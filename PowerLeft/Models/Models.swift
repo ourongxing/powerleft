@@ -1,8 +1,7 @@
 import Foundation
 import IOKit
 
-let appName = "余电"
-let nearcastGroupKey = "nearcastGroupID"
+let appName = "PowerLeft"
 
 struct DeviceDescriptor {
     let name: String
@@ -11,7 +10,6 @@ struct DeviceDescriptor {
     let vendorID: Int
     let receiverProductID: Int
     let accessoryProductID: Int
-    let supportsNearcast: Bool
 
     init(
         name: String,
@@ -19,8 +17,7 @@ struct DeviceDescriptor {
         category: String,
         vendorID: Int,
         receiverProductID: Int,
-        accessoryProductID: Int,
-        supportsNearcast: Bool = false
+        accessoryProductID: Int
     ) {
         self.name = name
         self.identifier = identifier
@@ -28,7 +25,6 @@ struct DeviceDescriptor {
         self.vendorID = vendorID
         self.receiverProductID = receiverProductID
         self.accessoryProductID = accessoryProductID
-        self.supportsNearcast = supportsNearcast
     }
 }
 

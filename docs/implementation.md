@@ -13,21 +13,19 @@ BatteryDriver
         ▼
 DeviceMonitor
         ├── menu bar status
-        ├── macOS Accessory Power Source
-        └── optional AirBattery Nearcast
+        └── macOS Accessory Power Source
 ```
 
 Each polling cycle asks every registered driver for a `BatteryReading`. A successful reading updates the menu and its macOS power source. A missing receiver hides both. A transient protocol error keeps the last valid reading.
 
 ## Components
 
-- `Sources/Models.swift` defines `DeviceDescriptor`, `BatteryReading`, `BatteryDriver`, errors, and `DriverRegistry`.
-- `Sources/HIDDeviceAccess.swift` matches and opens the receiver management interface, then guarantees cleanup.
-- `Sources/Drivers` contains one independent implementation per supported device.
-- `Sources/PowerSource.swift` publishes normalized readings through the macOS IOKit power-source interface.
-- `Sources/AppDelegate.swift` handles generic polling, menu state, connection state, and launch-at-login behavior.
-- `Sources/NearcastSender.swift` provides the optional AirBattery integration.
-- `Sources/main.swift` starts the menu bar app or runs the `--once` diagnostic mode.
+- `PowerLeft/Models/Models.swift` defines `DeviceDescriptor`, `BatteryReading`, `BatteryDriver`, errors, and `DriverRegistry`.
+- `PowerLeft/Services/HIDDeviceAccess.swift` matches and opens the receiver management interface, then guarantees cleanup.
+- `PowerLeft/Drivers` contains one independent implementation per supported device.
+- `PowerLeft/Services/PowerSource.swift` publishes normalized readings through the macOS IOKit power-source interface.
+- `PowerLeft/App/AppDelegate.swift` handles generic polling, menu state, connection state, and launch-at-login behavior.
+- `PowerLeft/App/main.swift` starts the menu bar app or runs the `--once` diagnostic mode.
 
 ## HID access
 
@@ -74,7 +72,7 @@ The source is marked absent when its receiver is disconnected, which removes it 
 
 Adding a device requires only a new `BatteryDriver` implementation and one registry entry:
 
-1. Add a driver under `Sources/Drivers`.
+1. Add a driver under `PowerLeft/Drivers` and include it in the PowerLeft target.
 2. Define its `DeviceDescriptor`.
 3. Implement `readBattery()` using the device protocol.
 4. Validate the returned percentage and charging state.

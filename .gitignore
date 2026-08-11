@@ -1,3 +1,7 @@
 .DS_Store
+.build/
+DerivedData/
+build/
 dist/
-JZM5BatteryTray.app/
+*.xcuserstate
+xcuserdata/
