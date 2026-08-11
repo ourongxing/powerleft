@@ -58,9 +58,45 @@ open dist/PowerLeft.app
 
 构建脚本使用 ad-hoc 签名，不需要开发者证书。产物位于 `dist/PowerLeft.app`。
 
+开发驱动时可以执行一次性硬件读取，不启动菜单栏应用：
+
+```bash
+dist/PowerLeft.app/Contents/MacOS/PowerLeft --once
+```
+
 ## 工作原理
 
 程序只打开接收器的 `Usage Page 0x008C / Usage 0x01` 管理接口。JZM5 通过 Output Report `0xB3 + 0x06` 查询，并从 Input Report `0xB4` 解析电量；Keychron M6 读取 Feature Report `0x51` 的电量和充电状态。两者各自发布为独立的 macOS Accessory Power Source，JZM5 还可选通过 AirBattery Nearcast 在本机同步。
+
+## 项目结构
+
+```text
+Sources/
+├── Drivers/
+│   ├── JZM5Driver.swift
+│   └── KeychronM6Driver.swift
+├── AppDelegate.swift
+├── HIDDeviceAccess.swift
+├── Models.swift
+├── NearcastSender.swift
+├── PowerSource.swift
+└── main.swift
+```
+
+- `BatteryDriver` 定义所有设备驱动共同的电量读取接口。
+- `HIDDeviceAccess` 负责匹配、打开和关闭 HID 管理接口。
+- `DriverRegistry` 是支持设备的唯一注册入口。
+- `AppDelegate` 只负责轮询驱动、更新菜单和处理设备在线状态。
+- `PowerSource` 将任意驱动的读数发布到 macOS 电池组件。
+
+### 添加新设备
+
+1. 在 `Sources/Drivers` 新建一个实现 `BatteryDriver` 的驱动。
+2. 提供设备名称、类别、VID/PID 和稳定的唯一标识符。
+3. 在 `readBattery()` 中完成该设备的协议查询，返回 `BatteryReading`。
+4. 将驱动实例加入 `Models.swift` 中的 `DriverRegistry.all`。
+
+菜单项、断开隐藏、定时轮询和系统电源项均由公共层自动处理。键盘驱动只需把设备类别设为 `Keyboard`。
 
 ## Contributors
 

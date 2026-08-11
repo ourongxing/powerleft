@@ -10,7 +10,9 @@ rm -rf "$app" "$previous_app" "$legacy_app"
 mkdir -p "$app/Contents/MacOS"
 cp "$project_dir/Info.plist" "$app/Contents/Info.plist"
 
-swiftc "$project_dir/JZM5BatteryTray.swift" \
+swift_sources=("$project_dir"/Sources/*.swift "$project_dir"/Sources/Drivers/*.swift)
+
+swiftc "${swift_sources[@]}" \
   -target arm64-apple-macosx13.0 \
   -framework AppKit \
   -framework IOKit \
