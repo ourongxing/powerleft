@@ -59,7 +59,7 @@ Requirements:
 open dist/PowerLeft.app
 ```
 
-The build script creates an ad-hoc signed app at `dist/PowerLeft.app`.
+The build script creates an ad-hoc signed app at `dist/PowerLeft.app`. Set `CODE_SIGN_IDENTITY` to use a stable local development certificate instead.
 
 Run a single hardware diagnostic without starting the menu bar app:
 

@@ -56,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         startNearcastIfConfigured()
         DispatchQueue.main.async { [weak self] in self?.updateBattery() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.monitors.allSatisfy({ $0.lastReading == nil }) else { return }
+            self.updateBattery()
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.updateBattery() }
     }
 
@@ -174,15 +178,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshAirBattery() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSWorkspace.shared.open(URL(string: "airbattery://reloadwingets")!)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.openAirBatteryRefresh()
+        }
+    }
+
+    private func openAirBatteryRefresh() {
+        guard let url = URL(string: "airbattery://reloadwingets") else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.open(url, configuration: configuration) { _, error in
+            if let error { NSLog("AirBattery background refresh failed: \(error)") }
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         guard nearcast?.sendOffline() == true else { return }
         Thread.sleep(forTimeInterval: 0.3)
-        NSWorkspace.shared.open(URL(string: "airbattery://reloadwingets")!)
+        openAirBatteryRefresh()
     }
 
     private func present(_ error: Error) {

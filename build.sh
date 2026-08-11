@@ -5,6 +5,7 @@ project_dir=${0:A:h}
 app="$project_dir/dist/PowerLeft.app"
 previous_app="$project_dir/dist/PeripheralBattery.app"
 legacy_app="$project_dir/dist/JZM5BatteryTray.app"
+signing_identity=${CODE_SIGN_IDENTITY:--}
 
 rm -rf "$app" "$previous_app" "$legacy_app"
 mkdir -p "$app/Contents/MacOS"
@@ -21,5 +22,5 @@ swiftc "${swift_sources[@]}" \
   -framework ServiceManagement \
   -o "$app/Contents/MacOS/PowerLeft"
 
-codesign --force --deep --sign - "$app"
+codesign --force --deep --sign "$signing_identity" "$app"
 echo "$app"
