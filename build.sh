@@ -7,7 +7,12 @@ derived_data="$project_dir/.build"
 product="$derived_data/Build/Products/Release/PowerLeft.app"
 previous_app="$project_dir/dist/PeripheralBattery.app"
 legacy_app="$project_dir/dist/JZM5BatteryTray.app"
-signing_identity=${CODE_SIGN_IDENTITY:--}
+if [[ -n ${CODE_SIGN_IDENTITY:-} ]]; then
+  signing_identity=$CODE_SIGN_IDENTITY
+else
+  signing_identity=$(security find-identity -v -p codesigning | awk '/^[[:space:]]*[0-9]+\)/ { print $2; exit }')
+  signing_identity=${signing_identity:--}
+fi
 
 rm -rf "$app" "$previous_app" "$legacy_app" "$derived_data"
 xcodebuild \

@@ -79,6 +79,14 @@ The menu bar item combines an SF Symbols battery glyph with the selected device'
 
 When two or more devices are connected, the menu exposes a `菜单栏显示` submenu with the active device checkmarked. The explicit selection is stored in `UserDefaults`. If that device disconnects, the menu bar temporarily falls back to an available device and automatically restores the saved selection when it reconnects. The selector stays hidden when zero or one device is connected.
 
+## Shortcuts action
+
+`GetDeviceBatteriesIntent` exposes `获取设备电量` through App Intents without opening the app. Each invocation polls the registered drivers and returns only currently connected devices as `DeviceBatteryEntity` values. The entity exposes its stable identifier, name, accessory category, percentage, and charging state as structured fields that later Shortcuts actions can inspect or filter.
+
+The App Intent reader treats missing receivers and devices without a response as an empty result for that driver. Other driver errors are logged without preventing healthy drivers from returning data. `HIDDeviceAccess` serializes access so a Shortcuts invocation cannot race the menu bar's periodic poll for the same receiver.
+
+Shortcuts discovers an action from an ad-hoc signed build but cannot establish the App Intents process connection because that signature has no Team Identifier. `build.sh` therefore uses an available code-signing identity by default and falls back to ad-hoc signing only on machines without one. `CODE_SIGN_IDENTITY` can still override the selected identity for release builds.
+
 ## Driver extension
 
 Adding a device requires only a new `BatteryDriver` implementation and one registry entry:

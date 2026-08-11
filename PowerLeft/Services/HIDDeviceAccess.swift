@@ -2,6 +2,8 @@ import Foundation
 import IOKit.hid
 
 enum HIDDeviceAccess {
+    private static let accessLock = NSLock()
+
     static func withManagementDevice<T>(
         for descriptor: DeviceDescriptor,
         _ body: (IOHIDDevice) throws -> T
@@ -16,6 +18,9 @@ enum HIDDeviceAccess {
         limit: Int = .max,
         _ body: (IOHIDDevice) throws -> T
     ) throws -> [T] {
+        accessLock.lock()
+        defer { accessLock.unlock() }
+
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         var matching = [
             kIOHIDVendorIDKey as String: descriptor.vendorID,

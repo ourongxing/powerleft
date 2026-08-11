@@ -9,6 +9,7 @@ PowerLeft brings battery levels from supported 2.4 GHz mice and keyboards into t
 - Handles multiple Keychron receivers at the same time.
 - Displays the selected device's battery level and charging state directly in the menu bar.
 - Lets you choose which device appears in the menu bar when multiple devices are connected.
+- Provides a Shortcuts action that returns structured battery data for every connected device.
 - Hides disconnected devices automatically.
 - Polls devices in the background without keeping a vendor driver open.
 - Uses independent device drivers so more mice and keyboards can be added easily.
@@ -23,4 +24,4 @@ Open `PowerLeft.xcodeproj` in Xcode to build and debug the app. For a command-li
 ./build.sh
 ```
 
-The script writes the ad-hoc signed app to `dist/PowerLeft.app`.
+The script writes the app to `dist/PowerLeft.app`. It automatically uses the first valid code-signing identity in the login keychain, or falls back to an ad-hoc signature when no identity is available. A signing identity with a Team Identifier is required for macOS Shortcuts to communicate with the App Intent.
