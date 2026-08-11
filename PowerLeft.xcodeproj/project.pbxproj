@@ -10,7 +10,7 @@
 		300000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* AppDelegate.swift */; };
 		300000000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* Models.swift */; };
 		300000000000000000000004 /* JZM5Driver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* JZM5Driver.swift */; };
-		300000000000000000000005 /* KeychronM6Driver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* KeychronM6Driver.swift */; };
+		300000000000000000000005 /* KeychronDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* KeychronDriver.swift */; };
 		300000000000000000000006 /* HIDDeviceAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* HIDDeviceAccess.swift */; };
 		300000000000000000000008 /* PowerSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* PowerSource.swift */; };
 		300000000000000000000009 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* AppKit.framework */; };
@@ -24,7 +24,7 @@
 		100000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		100000000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		100000000000000000000004 /* JZM5Driver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JZM5Driver.swift; sourceTree = "<group>"; };
-		100000000000000000000005 /* KeychronM6Driver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychronM6Driver.swift; sourceTree = "<group>"; };
+		100000000000000000000005 /* KeychronDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychronDriver.swift; sourceTree = "<group>"; };
 		100000000000000000000006 /* HIDDeviceAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDDeviceAccess.swift; sourceTree = "<group>"; };
 		100000000000000000000008 /* PowerSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerSource.swift; sourceTree = "<group>"; };
 		100000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -92,7 +92,7 @@
 			isa = PBXGroup;
 			children = (
 				100000000000000000000004 /* JZM5Driver.swift */,
-				100000000000000000000005 /* KeychronM6Driver.swift */,
+				100000000000000000000005 /* KeychronDriver.swift */,
 			);
 			path = Drivers;
 			sourceTree = "<group>";
@@ -202,7 +202,7 @@
 				300000000000000000000002 /* AppDelegate.swift in Sources */,
 				300000000000000000000003 /* Models.swift in Sources */,
 				300000000000000000000004 /* JZM5Driver.swift in Sources */,
-				300000000000000000000005 /* KeychronM6Driver.swift in Sources */,
+				300000000000000000000005 /* KeychronDriver.swift in Sources */,
 				300000000000000000000006 /* HIDDeviceAccess.swift in Sources */,
 				300000000000000000000008 /* PowerSource.swift in Sources */,
 			);

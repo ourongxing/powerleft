@@ -4,12 +4,13 @@ import Darwin
 if CommandLine.arguments.contains("--once") {
     for driver in DriverRegistry.all {
         do {
-            let reading = try driver.readBattery()
-            print("\(driver.device.identifier)\t\(reading.percent)%\t\(reading.isCharging ? "charging" : "battery")")
+            for reading in try driver.readBatteries() {
+                print("\(reading.device.identifier)\t\(reading.device.name)\t\(reading.battery.percent)%\t\(reading.battery.isCharging ? "charging" : "battery")")
+            }
         } catch BridgeError.noReceiver {
             continue
         } catch {
-            fputs("\(driver.device.identifier): \(error)\n", stderr)
+            fputs("\(driver.name): \(error)\n", stderr)
         }
     }
     exit(EXIT_SUCCESS)

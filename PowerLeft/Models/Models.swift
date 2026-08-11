@@ -8,7 +8,7 @@ struct DeviceDescriptor {
     let identifier: String
     let category: String
     let vendorID: Int
-    let receiverProductID: Int
+    let receiverProductID: Int?
     let accessoryProductID: Int
 
     init(
@@ -16,7 +16,7 @@ struct DeviceDescriptor {
         identifier: String,
         category: String,
         vendorID: Int,
-        receiverProductID: Int,
+        receiverProductID: Int?,
         accessoryProductID: Int
     ) {
         self.name = name
@@ -33,15 +33,20 @@ struct BatteryReading: Equatable {
     let isCharging: Bool
 }
 
+struct DeviceBatteryReading {
+    let device: DeviceDescriptor
+    let battery: BatteryReading
+}
+
 protocol BatteryDriver {
-    var device: DeviceDescriptor { get }
-    func readBattery() throws -> BatteryReading
+    var name: String { get }
+    func readBatteries() throws -> [DeviceBatteryReading]
 }
 
 enum DriverRegistry {
     static let all: [any BatteryDriver] = [
         JZM5Driver(),
-        KeychronM6Driver()
+        KeychronDriver()
     ]
 }
 

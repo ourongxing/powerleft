@@ -2,6 +2,8 @@ import Foundation
 import IOKit.hid
 
 struct JZM5Driver: BatteryDriver {
+    let name = "JZM5"
+
     let device = DeviceDescriptor(
         name: "京东京造 JZM5",
         identifier: "JZM5-2.4G",
@@ -11,8 +13,8 @@ struct JZM5Driver: BatteryDriver {
         accessoryProductID: 0xD20F
     )
 
-    func readBattery() throws -> BatteryReading {
-        try HIDDeviceAccess.withManagementDevice(for: device) { receiver in
+    func readBatteries() throws -> [DeviceBatteryReading] {
+        let battery = try HIDDeviceAccess.withManagementDevice(for: device) { receiver in
             let state = JZM5QueryState()
             let retained = Unmanaged.passRetained(state)
             defer { retained.release() }
@@ -52,6 +54,7 @@ struct JZM5Driver: BatteryDriver {
             }
             return reading
         }
+        return [DeviceBatteryReading(device: device, battery: battery)]
     }
 }
 

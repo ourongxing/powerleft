@@ -16,7 +16,7 @@ DeviceMonitor
         └── macOS Accessory Power Source
 ```
 
-Each polling cycle asks every registered driver for a `BatteryReading`. A successful reading updates the menu and its macOS power source. A missing receiver hides both. A transient protocol error keeps the last valid reading.
+Each polling cycle asks every registered driver for all of its `DeviceBatteryReading` values. A successful reading creates or updates the matching menu and macOS power source. Devices omitted from a successful receiver scan are hidden. A missing receiver hides all devices previously published by that driver, while a transient protocol error keeps the last valid reading.
 
 ## Components
 
@@ -51,20 +51,23 @@ percent     = payload[19] & 0x7F
 isCharging  = (payload[19] & 0x80) != 0
 ```
 
-### Keychron M6
+### Keychron 2.4 GHz devices
 
-The Keychron M6 driver reads a 21-byte Feature Report with Report ID `0x51`.
+The Keychron driver matches every Keychron management interface rather than a fixed receiver PID, allowing 1K, 8K, and newer receiver variants to be discovered. Each receiver returns a 21-byte Feature Report with Report ID `0x51`. The report includes connection state and the paired accessory VID/PID as well as its battery state.
 
 ```text
+connected   = report[2] == 1
+vendor ID   = report[4] << 8 | report[5]
+product ID  = report[7] << 8 | report[6]
 percent     = report[11]
 isCharging  = (report[12] & 0x03) != 0
 ```
 
-The percentage is validated against the `0...100` range before publication.
+Disconnected receivers produce no reading, so their previous menu and battery-widget entries are removed. The percentage and reported Keychron VID are validated before publication. Accessory PID and receiver location form the stable identifier, allowing multiple Keychron receivers to be shown independently. Every model uses a category-and-PID display name so new models remain usable without application changes or model-specific code.
 
 ## macOS power-source publication
 
-Each driver provides a `DeviceDescriptor` containing its display name, category, receiver VID/PID, accessory PID, and stable identifier. `PowerSource` converts this metadata and the latest reading into an `Accessory Source` dictionary and submits it through `IOPSSetPowerSourceDetails`.
+Each reading provides a `DeviceDescriptor` containing its display name, category, receiver VID/PID, accessory PID, and stable identifier. `PowerSource` converts this metadata and the latest reading into an `Accessory Source` dictionary and submits it through `IOPSSetPowerSourceDetails`.
 
 The source is marked absent when its receiver is disconnected, which removes it from the macOS Batteries widget. The IOKit power-source API used here is undocumented and may change in future macOS releases.
 
@@ -74,7 +77,7 @@ Adding a device requires only a new `BatteryDriver` implementation and one regis
 
 1. Add a driver under `PowerLeft/Drivers` and include it in the PowerLeft target.
 2. Define its `DeviceDescriptor`.
-3. Implement `readBattery()` using the device protocol.
+3. Implement `readBatteries()` using the device protocol.
 4. Validate the returned percentage and charging state.
 5. Register the driver in `DriverRegistry.all`.
 

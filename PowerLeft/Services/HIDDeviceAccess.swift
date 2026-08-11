@@ -6,26 +6,44 @@ enum HIDDeviceAccess {
         for descriptor: DeviceDescriptor,
         _ body: (IOHIDDevice) throws -> T
     ) throws -> T {
+        let values = try withManagementDevices(for: descriptor, limit: 1, body)
+        guard let value = values.first else { throw BridgeError.noReceiver(descriptor.name) }
+        return value
+    }
+
+    static func withManagementDevices<T>(
+        for descriptor: DeviceDescriptor,
+        limit: Int = .max,
+        _ body: (IOHIDDevice) throws -> T
+    ) throws -> [T] {
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-        IOHIDManagerSetDeviceMatching(manager, [
+        var matching = [
             kIOHIDVendorIDKey as String: descriptor.vendorID,
-            kIOHIDProductIDKey as String: descriptor.receiverProductID,
             kIOHIDPrimaryUsagePageKey as String: 0x008C,
             kIOHIDPrimaryUsageKey as String: 0x0001
-        ] as CFDictionary)
+        ]
+        if let productID = descriptor.receiverProductID {
+            matching[kIOHIDProductIDKey as String] = productID
+        }
+        IOHIDManagerSetDeviceMatching(manager, matching as CFDictionary)
 
         let managerResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         guard managerResult == kIOReturnSuccess else { throw BridgeError.open(managerResult) }
         defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
 
-        guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>, let receiver = devices.first else {
+        guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>, !devices.isEmpty else {
             throw BridgeError.noReceiver(descriptor.name)
         }
 
-        let openResult = IOHIDDeviceOpen(receiver, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard openResult == kIOReturnSuccess else { throw BridgeError.open(openResult) }
-        defer { IOHIDDeviceClose(receiver, IOOptionBits(kIOHIDOptionsTypeNone)) }
+        return try devices.prefix(limit).map { receiver in
+            let openResult = IOHIDDeviceOpen(receiver, IOOptionBits(kIOHIDOptionsTypeNone))
+            guard openResult == kIOReturnSuccess else { throw BridgeError.open(openResult) }
+            defer { IOHIDDeviceClose(receiver, IOOptionBits(kIOHIDOptionsTypeNone)) }
+            return try body(receiver)
+        }
+    }
 
-        return try body(receiver)
+    static func locationID(of device: IOHIDDevice) -> Int {
+        (IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? NSNumber)?.intValue ?? 0
     }
 }

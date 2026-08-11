@@ -3,13 +3,15 @@ import IOKit.hid
 import ServiceManagement
 
 private final class DeviceMonitor {
-    let driver: any BatteryDriver
+    let driverName: String
+    let device: DeviceDescriptor
     let powerSource: PowerSource
     let statusItem: NSMenuItem
     var lastReading: BatteryReading?
 
-    init(driver: any BatteryDriver, powerSource: PowerSource, statusItem: NSMenuItem) {
-        self.driver = driver
+    init(driverName: String, device: DeviceDescriptor, powerSource: PowerSource, statusItem: NSMenuItem) {
+        self.driverName = driverName
+        self.device = device
         self.powerSource = powerSource
         self.statusItem = statusItem
     }
@@ -17,8 +19,9 @@ private final class DeviceMonitor {
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let drivers = DriverRegistry.all
     private var timer: Timer?
-    private var monitors: [DeviceMonitor] = []
+    private var monitors: [String: DeviceMonitor] = [:]
     private var deviceSeparatorItem: NSMenuItem?
     private var launchItem: NSMenuItem?
     private var permissionItem: NSMenuItem?
@@ -26,7 +29,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let menu = NSMenu()
         menu.delegate = self
-        registerDrivers(in: menu)
 
         let deviceSeparator = NSMenuItem.separator()
         deviceSeparator.isHidden = true
@@ -54,28 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         DispatchQueue.main.async { [weak self] in self?.updateBattery() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            guard let self, self.monitors.allSatisfy({ $0.lastReading == nil }) else { return }
+            guard let self, self.monitors.values.allSatisfy({ $0.lastReading == nil }) else { return }
             self.updateBattery()
         }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.updateBattery() }
-    }
-
-    private func registerDrivers(in menu: NSMenu) {
-        for driver in DriverRegistry.all {
-            do {
-                let item = NSMenuItem(title: statusTitle(for: driver.device, reading: nil), action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                item.isHidden = true
-                menu.addItem(item)
-                monitors.append(DeviceMonitor(
-                    driver: driver,
-                    powerSource: try PowerSource(device: driver.device),
-                    statusItem: item
-                ))
-            } catch {
-                NSLog("\(appName) [\(driver.device.name)]: \(error)")
-            }
-        }
     }
 
     private var launchAtLoginEnabled: Bool { SMAppService.mainApp.status == .enabled }
@@ -115,20 +99,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateBattery() {
-        for monitor in monitors {
+        for driver in drivers {
             do {
-                let reading = try monitor.driver.readBattery()
-                monitor.lastReading = reading
-                try monitor.powerSource.publish(reading)
-                monitor.statusItem.title = statusTitle(for: monitor.driver.device, reading: reading)
-                monitor.statusItem.isHidden = false
-                updateDeviceSeparator()
+                let readings = try driver.readBatteries()
+                let connectedIdentifiers = Set(readings.map(\.device.identifier))
+                for monitor in monitors.values where monitor.driverName == driver.name
+                    && !connectedIdentifiers.contains(monitor.device.identifier) {
+                    markDisconnected(monitor)
+                }
+                for reading in readings {
+                    try publish(reading, from: driver)
+                }
             } catch BridgeError.noReceiver {
-                markDisconnected(monitor)
+                for monitor in monitors.values where monitor.driverName == driver.name {
+                    markDisconnected(monitor)
+                }
             } catch {
-                NSLog("\(appName) [\(monitor.driver.device.name)]: \(error)")
+                NSLog("\(appName) [\(driver.name)]: \(error)")
             }
         }
+    }
+
+    private func publish(_ reading: DeviceBatteryReading, from driver: any BatteryDriver) throws {
+        guard (0...100).contains(reading.battery.percent) else {
+            throw BridgeError.invalidResponse("\(reading.device.name) 电量为 \(reading.battery.percent)%")
+        }
+
+        let monitor: DeviceMonitor
+        if let existing = monitors[reading.device.identifier] {
+            monitor = existing
+        } else {
+            guard let menu = statusItem.menu, let separator = deviceSeparatorItem else { return }
+            let item = NSMenuItem(title: statusTitle(for: reading.device, reading: nil), action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.insertItem(item, at: menu.index(of: separator))
+            monitor = DeviceMonitor(
+                driverName: driver.name,
+                device: reading.device,
+                powerSource: try PowerSource(device: reading.device),
+                statusItem: item
+            )
+            monitors[reading.device.identifier] = monitor
+        }
+
+        monitor.lastReading = reading.battery
+        try monitor.powerSource.publish(reading.battery)
+        monitor.statusItem.title = statusTitle(for: monitor.device, reading: reading.battery)
+        monitor.statusItem.isHidden = false
+        updateDeviceSeparator()
     }
 
     private func statusTitle(for device: DeviceDescriptor, reading: BatteryReading?) -> String {
@@ -148,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateDeviceSeparator() {
-        deviceSeparatorItem?.isHidden = monitors.allSatisfy(\.statusItem.isHidden)
+        deviceSeparatorItem?.isHidden = monitors.values.allSatisfy(\.statusItem.isHidden)
     }
 
     private func present(_ error: Error) {
